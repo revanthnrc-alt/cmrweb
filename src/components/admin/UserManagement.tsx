@@ -1,33 +1,43 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useMutation, useQuery } from 'convex/react';
 import { GlassCard } from '../ui/GlassCard';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/table';
 import { Badge } from '../ui/Badge';
-
-// MOCK DATA
-const MOCK_USERS = [
-  { id: 'u1', name: 'Arjun S.', avatar: 'AS', email: 'arjun@college.edu', rank: 'Legend', xp: 12500, role: 'admin', joined: '2025-08-15' },
-  { id: 'u2', name: 'Priya M.', avatar: 'PM', email: 'priya@college.edu', rank: 'Expert', xp: 11200, role: 'admin', joined: '2025-08-16' },
-  { id: 'u3', name: 'Kiran R.', avatar: 'KR', email: 'kiran@college.edu', rank: 'Pro', xp: 8900, role: 'member', joined: '2025-09-01' },
-  { id: 'u4', name: 'Rahul T.', avatar: 'RT', email: 'rahul@college.edu', rank: 'Pro', xp: 8500, role: 'member', joined: '2025-09-10' },
-  { id: 'u5', name: 'Sneha P.', avatar: 'SP', email: 'sneha@college.edu', rank: 'Intermediate', xp: 4200, role: 'member', joined: '2026-01-05' },
-];
+import { useToast } from '../ui/Toast';
+import { api } from '../../../convex/_generated/api';
 
 export const UserManagement = () => {
-  const [users, setUsers] = useState(MOCK_USERS);
+  const users = useQuery(api.users.getAllUsers);
+  const updateRole = useMutation(api.users.updateUserRole);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [isUpdatingUserId, setIsUpdatingUserId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  const filteredUsers = useMemo(() => {
+    const source = users ?? [];
+    return source.filter((user) => {
+      const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) || user.email.toLowerCase().includes(search.toLowerCase());
+      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [roleFilter, search, users]);
 
-  const handleMakeAdmin = (id: string) => {
-    if (window.confirm('Are you sure you want to make this user an admin? They will have full access to the dashboard.')) {
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, role: 'admin' } : u));
+  const handleMakeAdmin = async (userId: any) => {
+    if (!window.confirm('Are you sure you want to make this user an admin? They will have full access to the dashboard.')) {
+      return;
+    }
+
+    setIsUpdatingUserId(String(userId));
+    try {
+      await updateRole({ userId, role: 'admin' });
+      showToast('Role updated', 'success');
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not update role', 'error');
+    } finally {
+      setIsUpdatingUserId(null);
     }
   };
 
@@ -36,15 +46,15 @@ export const UserManagement = () => {
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search users..." 
+          <input
+            type="text"
+            placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-bg-surface border border-border-subtle rounded-lg py-2 pl-10 pr-4 text-text-primary focus:outline-none focus:border-accent-cyan"
           />
         </div>
-        <select 
+        <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
           className="bg-bg-surface border border-border-subtle rounded-lg py-2 px-4 text-text-primary focus:outline-none focus:border-accent-cyan"
@@ -68,46 +78,58 @@ export const UserManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredUsers.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-bg-base border border-border-subtle flex items-center justify-center text-xs font-bold text-text-primary">
-                      {user.avatar}
-                    </div>
-                    <span className="font-medium text-text-primary">{user.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-text-secondary">{user.email}</TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="text-text-primary font-medium">{user.rank}</span>
-                    <span className="text-xs text-accent-cyan font-space">{user.xp} XP</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={user.role === 'admin' ? 'purple' : 'gray'}>
-                    {user.role.toUpperCase()}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-text-secondary text-sm">{new Date(user.joined).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    {user.role !== 'admin' && (
-                      <button 
-                        onClick={() => handleMakeAdmin(user.id)}
-                        className="text-xs font-medium text-accent-amber hover:underline flex items-center gap-1"
-                      >
-                        <ShieldAlert size={12} /> Make Admin
-                      </button>
-                    )}
-                    <Link to={`/profile/${user.id}`} className="text-xs font-medium text-accent-cyan hover:underline">
-                      View Profile
-                    </Link>
-                  </div>
-                </TableCell>
+            {users === undefined ? (
+              <TableRow>
+                <TableCell colSpan={6}><div className="animate-pulse bg-white/5 rounded-lg h-24" /></TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredUsers.map((user) => (
+                <TableRow key={String(user._id)}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-bg-base border border-border-subtle flex items-center justify-center text-xs font-bold text-text-primary">
+                        {user.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="font-medium text-text-primary">{user.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-text-secondary">{user.email}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-text-primary font-medium">{user.rank}</span>
+                      <span className="text-xs text-accent-cyan font-space">{user.xp} XP</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={user.role === 'admin' ? 'purple' : 'gray'}>
+                      {user.role.toUpperCase()}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-text-secondary text-sm">{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      {user.role !== 'admin' && (
+                        <button
+                          onClick={() => void handleMakeAdmin(user._id)}
+                          disabled={isUpdatingUserId === String(user._id)}
+                          className="text-xs font-medium text-accent-amber hover:underline flex items-center gap-1 disabled:opacity-60"
+                        >
+                          {isUpdatingUserId === String(user._id) ? (
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border border-accent-amber/30 border-t-accent-amber" />
+                          ) : (
+                            <ShieldAlert size={12} />
+                          )}
+                          {isUpdatingUserId === String(user._id) ? 'Updating...' : 'Make Admin'}
+                        </button>
+                      )}
+                      <Link to={`/profile/${String(user._id)}`} className="text-xs font-medium text-accent-cyan hover:underline">
+                        View Profile
+                      </Link>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </GlassCard>

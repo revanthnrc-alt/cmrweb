@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { ClipboardList, Users, Trophy, Calendar, Search, ShieldAlert } from 'lucide-react';
 import { SubmissionReview } from '../components/admin/SubmissionReview';
 import { AuditLog } from '../components/admin/AuditLog';
 import { UserManagement } from '../components/admin/UserManagement';
 import { AdminLeaderboard } from '../components/admin/AdminLeaderboard';
 import { cn } from '../lib/cn';
-
-// MOCK: Current user role
-const MOCK_CURRENT_USER = { role: 'admin' }; // Change to 'member' to test route guard
 
 const TABS = [
   { id: 'submissions', label: 'Submissions Review', icon: ClipboardList },
@@ -20,39 +16,7 @@ const TABS = [
 ];
 
 export const AdminPage = () => {
-  const navigate = useNavigate();
-  const [isAuthorized, setIsAuthorized] = useState(false);
   const [activeTab, setActiveTab] = useState('submissions');
-  const [showFlash, setShowFlash] = useState(false);
-
-  useEffect(() => {
-    if (MOCK_CURRENT_USER.role !== 'admin') {
-      setShowFlash(true);
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
-    } else {
-      setIsAuthorized(true);
-    }
-  }, [navigate]);
-
-  if (showFlash) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-base">
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-red-500/10 border border-red-500/20 text-red-400 p-8 rounded-2xl flex flex-col items-center gap-4"
-        >
-          <ShieldAlert size={48} />
-          <h1 className="font-space text-2xl font-bold">Access Denied</h1>
-          <p>Redirecting to home...</p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!isAuthorized) return null;
 
   return (
     <div className="min-h-screen bg-bg-base pt-[72px]">
@@ -93,9 +57,10 @@ export const AdminPage = () => {
               "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors",
               activeTab === tab.id ? "text-accent-cyan" : "text-text-muted hover:text-text-secondary"
             )}
+            aria-label={tab.label}
           >
             <tab.icon size={20} />
-            <span className="text-[10px] font-medium truncate w-full text-center px-1">{tab.label}</span>
+            <span className={cn("h-1.5 w-1.5 rounded-full", activeTab === tab.id ? "bg-accent-cyan" : "bg-transparent")} />
           </button>
         ))}
       </div>

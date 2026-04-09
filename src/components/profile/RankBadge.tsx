@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { cn } from '@/src/lib/cn';
 
 export type RankTier = 'Newbie' | 'Learner' | 'Builder' | 'Expert' | 'Elite' | 'Legend';

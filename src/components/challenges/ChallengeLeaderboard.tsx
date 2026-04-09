@@ -1,18 +1,33 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useQuery } from 'convex/react';
 import { GlassCard } from '../ui/GlassCard';
+import { Badge } from '../ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/table';
+import { api } from '../../../convex/_generated/api';
 
-// MOCK DATA
-const MOCK_LEADERBOARD = [
-  { id: '1', rank: 1, name: 'Arjun S.', avatar: 'AS', score: 100, time: '2 hours ago' },
-  { id: '2', rank: 2, name: 'Priya M.', avatar: 'PM', score: 95, time: '5 hours ago' },
-  { id: '3', rank: 3, name: 'Rahul T.', avatar: 'RT', score: 88, time: '1 day ago' },
-  { id: '4', rank: 4, name: 'Sneha P.', avatar: 'SP', score: 85, time: '2 days ago' },
-  { id: '5', rank: 5, name: 'Vikram D.', avatar: 'VD', score: 70, time: '2 days ago' },
-];
+export const ChallengeLeaderboard = ({ challengeId }: { challengeId: any }) => {
+  const leaderboard = useQuery(api.challenges.getChallengeLeaderboard, challengeId ? { challengeId } : 'skip');
+  const previousIdsRef = useRef<string[]>([]);
+  const [freshIds, setFreshIds] = useState<string[]>([]);
 
-export const ChallengeLeaderboard = () => {
+  useEffect(() => {
+    if (!leaderboard?.length) return;
+    const currentIds = leaderboard.map((entry) => String(entry.submissionId));
+    const previousIds = previousIdsRef.current;
+    if (previousIds.length > 0) {
+      const incoming = currentIds.filter((id) => !previousIds.includes(id));
+      if (incoming.length > 0) {
+        previousIdsRef.current = currentIds;
+        setFreshIds((current) => [...current, ...incoming]);
+        const timeout = window.setTimeout(() => {
+          setFreshIds((current) => current.filter((id) => !incoming.includes(id)));
+        }, 3000);
+        return () => clearTimeout(timeout);
+      }
+    }
+    previousIdsRef.current = currentIds;
+  }, [leaderboard]);
+
   return (
     <GlassCard className="mt-8 overflow-hidden">
       <div className="p-4 border-b border-border-subtle flex justify-between items-center bg-bg-surface/50">
@@ -36,35 +51,49 @@ export const ChallengeLeaderboard = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {MOCK_LEADERBOARD.map((entry) => {
-            let borderClass = '';
-            if (entry.rank === 1) borderClass = 'border-l-4 border-l-yellow-400';
-            else if (entry.rank === 2) borderClass = 'border-l-4 border-l-gray-300';
-            else if (entry.rank === 3) borderClass = 'border-l-4 border-l-amber-700';
-            else borderClass = 'border-l-4 border-l-transparent';
+          {leaderboard === undefined ? (
+            <TableRow>
+              <TableCell colSpan={4}><div className="animate-pulse bg-white/5 rounded-lg h-24" /></TableCell>
+            </TableRow>
+          ) : leaderboard.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center text-text-muted py-8">No approved submissions yet.</TableCell>
+            </TableRow>
+          ) : (
+            leaderboard.map((entry, index) => {
+              let borderClass = 'border-l-4 border-l-transparent';
+              if (index === 0) borderClass = 'border-l-4 border-l-amber-400';
+              else if (index === 1) borderClass = 'border-l-4 border-l-gray-300';
+              else if (index === 2) borderClass = 'border-l-4 border-l-orange-500';
 
-            return (
-              <TableRow key={entry.id} className={borderClass}>
-                <TableCell className="text-center font-space font-bold text-text-secondary">
-                  #{entry.rank}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-bg-base border border-border-subtle flex items-center justify-center text-xs font-bold text-text-primary">
-                      {entry.avatar}
+              return (
+                <TableRow
+                  key={String(entry.submissionId)}
+                  className={`${borderClass} ${freshIds.includes(String(entry.submissionId)) ? 'bg-accent-amber/10 transition-colors' : ''}`}
+                  style={freshIds.includes(String(entry.submissionId)) ? { transitionDuration: '3000ms' } : undefined}
+                >
+                  <TableCell className="text-center font-space font-bold text-text-secondary">
+                    #{index + 1}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-bg-base border border-border-subtle flex items-center justify-center text-xs font-bold text-text-primary">
+                        {entry.user.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="font-medium text-text-primary">{entry.user.name}</span>
+                      {freshIds.includes(String(entry.submissionId)) && <Badge variant="amber">⚡ Just now</Badge>}
                     </div>
-                    <span className="font-medium text-text-primary">{entry.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-space font-bold text-accent-cyan">
-                  {entry.score}
-                </TableCell>
-                <TableCell className="text-right text-text-muted text-sm">
-                  {entry.time}
-                </TableCell>
-              </TableRow>
-            );
-          })}
+                  </TableCell>
+                  <TableCell className="text-right font-space font-bold text-accent-cyan">
+                    {entry.score}
+                  </TableCell>
+                  <TableCell className="text-right text-text-muted text-sm">
+                    {new Date(entry.submittedAt).toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
         </TableBody>
       </Table>
     </GlassCard>

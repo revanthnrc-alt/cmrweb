@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Github, Linkedin, ExternalLink, Trophy, Target, Star } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { GlassCard } from '../ui/GlassCard';
@@ -136,7 +136,6 @@ export const MemberModal: React.FC<MemberModalProps> = ({ member, isOpen, onClos
               </button>
             </div>
           </motion.div>
-        </>
       )}
     </AnimatePresence>
   );
